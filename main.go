@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/dghubble/go-twitter/twitter"
-	t "github.com/suzutan/syncfollowlist/internal/pkg/twitter"
+	t "github.com/suzutan/syncfollows/internal/pkg/twitter"
 )
 
 type contextKey string

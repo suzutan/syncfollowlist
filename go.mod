@@ -1,4 +1,4 @@
-module github.com/suzutan/syncfollowlist
+module github.com/suzutan/syncfollows
 
 go 1.16
 
