@@ -6,8 +6,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/dghubble/go-twitter/twitter"
@@ -101,9 +103,18 @@ func run(ctx context.Context, interval time.Duration) {
 	defer ticker.Stop()
 	do(ctx)
 	log.Printf("wait for %s\n", interval.String())
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(c)
+	defer close(c)
+
 	for {
 		select {
 		case <-ctx.Done():
+			return
+		case <-c:
+			log.Print("Interrupt, stop")
 			return
 		case <-ticker.C:
 			do(ctx)
