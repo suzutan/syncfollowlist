@@ -33,4 +33,5 @@ jobs:
         with:
           context: .
           push: true
-          tag_with_ref: true
+          tags: |
+            ghcr.io/${{ env.IMAGE_NAME }}:latest
