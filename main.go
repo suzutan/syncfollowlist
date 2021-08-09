@@ -19,12 +19,14 @@ import (
 type contextKey string
 
 const contextClient contextKey = "client"
+const contextOwnerID contextKey = "ownerID"
 const contextListID contextKey = "listID"
 
 func do(ctx context.Context) {
 
 	client := ctx.Value(contextClient).(*twitter.Client)
 	listID := ctx.Value(contextListID).(int64)
+	ownerID := ctx.Value(contextOwnerID).(int64)
 
 	// get follows
 	log.Print("fetch friend IDs")
@@ -35,6 +37,8 @@ func do(ctx context.Context) {
 		log.Print(err)
 		return
 	}
+	// adding ownerID to friendIDs
+	follows := append(friendIDs.IDs, ownerID)
 
 	// get follows list members
 	log.Print("fetch List IDs")
@@ -54,8 +58,8 @@ func do(ctx context.Context) {
 		listIDs = append(listIDs, member.ID)
 	}
 
-	var addIDs = Int64ListDivide(friendIDs.IDs, listIDs)
-	var delIDs = Int64ListDivide(listIDs, friendIDs.IDs)
+	var addIDs = Int64ListDivide(follows, listIDs)
+	var delIDs = Int64ListDivide(listIDs, follows)
 
 	//  add follows to list
 	if len(addIDs) > 0 {
@@ -132,12 +136,14 @@ func main() {
 		AccessTokenSecret: os.Getenv("ATS"),
 	}
 	listID, _ := strconv.ParseInt(os.Getenv("LIST_ID"), 10, 64)
+	ownerID, _ := strconv.ParseInt(strings.Split(auth.AccessToken, "-")[0], 10, 64)
 	client := t.New(auth)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ctx = context.WithValue(ctx, contextClient, client)
 	ctx = context.WithValue(ctx, contextListID, listID)
+	ctx = context.WithValue(ctx, contextOwnerID, ownerID)
 
 	run(ctx, 1*time.Minute)
 
