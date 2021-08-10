@@ -28,78 +28,107 @@ func do(ctx context.Context) {
 	listID := ctx.Value(contextListID).(int64)
 	ownerID := ctx.Value(contextOwnerID).(int64)
 
-	// get follows
-	log.Print("fetch friend IDs")
-	friendIDs, _, err := client.Friends.IDs(&twitter.FriendIDParams{
-		Count: 5000,
-	})
-	if err != nil {
-		log.Print(err)
-		return
-	}
-	// adding ownerID to friendIDs
-	follows := append(friendIDs.IDs, ownerID)
+	cFollows := make(chan []int64)
+	cListIDs := make(chan []int64)
 
-	// get follows list members
-	log.Print("fetch List IDs")
+	go func() {
+		// get follows
+		log.Print("fetch friend IDs")
+		friendIDs, _, err := client.Friends.IDs(&twitter.FriendIDParams{
+			Count: 5000,
+		})
+		if err != nil {
+			log.Print(err)
+			return
+		}
+		// adding ownerID to friendIDs
+		follows := append(friendIDs.IDs, ownerID)
+		cFollows <- follows
+	}()
 
-	listMembers, _, err := client.Lists.Members(&twitter.ListsMembersParams{
-		ListID: listID,
-		Count:  5000,
-	})
-	if err != nil {
-		log.Print(err)
-		return
-	}
+	go func() {
+		// get follows list members
+		log.Print("fetch List IDs")
 
-	// map list members to IDs
-	var listIDs []int64
-	for _, member := range listMembers.Users {
-		listIDs = append(listIDs, member.ID)
-	}
+		listMembers, _, err := client.Lists.Members(&twitter.ListsMembersParams{
+			ListID: listID,
+			Count:  5000,
+		})
+		if err != nil {
+			log.Print(err)
+			return
+		}
+
+		// map list members to IDs
+		var listIDs []int64
+		for _, member := range listMembers.Users {
+			listIDs = append(listIDs, member.ID)
+		}
+		cListIDs <- listIDs
+	}()
+
+	follows := <-cFollows
+	listIDs := <-cListIDs
+	log.Printf("%d follows, %d list IDs", len(follows), len(listIDs))
 
 	var addIDs = Int64ListDivide(follows, listIDs)
 	var delIDs = Int64ListDivide(listIDs, follows)
 
-	//  add follows to list
-	if len(addIDs) > 0 {
-		res, err := client.Lists.MembersCreateAll(&twitter.ListsMembersCreateAllParams{
-			ListID: listID,
-			UserID: strings.Trim(strings.Join(strings.Fields(fmt.Sprint(addIDs)), ","), "[]"),
-		})
+	cAdd := make(chan int)
+	cDel := make(chan int)
 
-		if err != nil {
-			log.Print(err)
-			return
-		}
-		if res.StatusCode == http.StatusOK {
-			log.Printf("add success. count:%d\n", len(addIDs))
+	go func() {
+		//  add follows to list
+		if len(addIDs) > 0 {
+			res, err := client.Lists.MembersCreateAll(&twitter.ListsMembersCreateAllParams{
+				ListID: listID,
+				UserID: strings.Trim(strings.Join(strings.Fields(fmt.Sprint(addIDs)), ","), "[]"),
+			})
+
+			if err != nil {
+				log.Print(err)
+				cAdd <- 1
+				return
+			}
+			if res.StatusCode == http.StatusOK {
+				log.Printf("add success. count:%d\n", len(addIDs))
+			} else {
+				log.Printf("add failed. %s", res.Status)
+			}
 		} else {
-			log.Printf("add failed. %s", res.Status)
+			log.Print("addIds is 0, skip.")
 		}
-	} else {
-		log.Print("addIds is 0, skip.")
-	}
+		cAdd <- 0
 
-	// remove follows from list
-	if len(delIDs) > 0 {
-		res, err := client.Lists.MembersDestroyAll(&twitter.ListsMembersDestroyAllParams{
-			ListID: listID,
-			UserID: strings.Trim(strings.Join(strings.Fields(fmt.Sprint(delIDs)), ","), "[]"),
-		})
+	}()
 
-		if err != nil {
-			log.Print(err)
-			return
-		}
-		if res.StatusCode == http.StatusOK {
-			log.Printf("delete success. count:%d\n", len(delIDs))
+	go func() {
+		// remove follows from list
+		if len(delIDs) > 0 {
+			res, err := client.Lists.MembersDestroyAll(&twitter.ListsMembersDestroyAllParams{
+				ListID: listID,
+				UserID: strings.Trim(strings.Join(strings.Fields(fmt.Sprint(delIDs)), ","), "[]"),
+			})
+
+			if err != nil {
+				log.Print(err)
+				cDel <- 1
+				return
+			}
+			if res.StatusCode == http.StatusOK {
+				log.Printf("delete success. count:%d\n", len(delIDs))
+			} else {
+				log.Printf("delete failed. %s", res.Status)
+			}
 		} else {
-			log.Printf("delete failed. %s", res.Status)
+			log.Print("delIDs is 0, skip.")
 		}
-	} else {
-		log.Print("delIDs is 0, skip.")
-	}
+		cDel <- 0
+	}()
+
+	<-cAdd
+	<-cDel
+
 }
 
 func run(ctx context.Context, interval time.Duration) {
