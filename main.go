@@ -41,6 +41,7 @@ func do(ctx context.Context) {
 		})
 		if err != nil {
 			log.Print(err)
+			cListIDs <- nil
 			return
 		}
 		// adding ownerID to friendIDs
@@ -58,6 +59,7 @@ func do(ctx context.Context) {
 		})
 		if err != nil {
 			log.Print(err)
+			cListIDs <- nil
 			return
 		}
 
@@ -70,7 +72,15 @@ func do(ctx context.Context) {
 	}()
 
 	follows := <-cFollows
+	if follows == nil {
+		return
+	}
+
 	listIDs := <-cListIDs
+	if listIDs == nil {
+		return
+	}
+
 	log.Printf("%d follows, %d list IDs", len(follows), len(listIDs))
 
 	var addIDs = Int64ListDivide(follows, listIDs)
