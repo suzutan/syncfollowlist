@@ -17,4 +17,5 @@ services:
       AT: AT_HERE
       ATS: ATS_HERE
       LIST_ID: LIST_ID_HERE
+      TZ: Asia/Tokyo
 ```
