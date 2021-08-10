@@ -174,7 +174,7 @@ func main() {
 	ctx = context.WithValue(ctx, contextListID, listID)
 	ctx = context.WithValue(ctx, contextOwnerID, ownerID)
 
-	run(ctx, 1*time.Minute)
+	run(ctx, 5*time.Minute)
 
 }
 
