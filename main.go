@@ -30,6 +30,8 @@ func do(ctx context.Context) {
 
 	cFollows := make(chan []int64)
 	cListIDs := make(chan []int64)
+	defer close(cFollows)
+	defer close(cListIDs)
 
 	go func() {
 		// get follows
@@ -76,6 +78,8 @@ func do(ctx context.Context) {
 
 	cAdd := make(chan int)
 	cDel := make(chan int)
+	defer close(cAdd)
+	defer close(cDel)
 
 	go func() {
 		//  add follows to list
